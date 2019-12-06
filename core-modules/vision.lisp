@@ -1309,6 +1309,7 @@
    attended slot specification one nearest spec and one center spec"
   
   (let* ((attended (first (chunk-spec-slot-spec spec :attended)))
+		 (closest (spec-slot-value (first (chunk-spec-slot-spec spec :closest))))
          (slots (remove-if 'keywordp (chunk-spec-slot-spec spec) :key 'spec-slot-name))
          (current (current-marker vis-mod))
          (current-valid (chunk-p-fct current))
@@ -1318,6 +1319,10 @@
          (min-max-tests nil))
 		 
 	(print slots)
+	(print nearest)
+	(print attended)
+	(print closest)
+
       
     ;; Remap all current values to the current chunk
     
@@ -2952,7 +2957,7 @@ Whenever there's a change to the display the buffers will be updated as follows:
 
 (define-module-fct :vision 
     (list (define-buffer-fct 'visual-location 
-              :request-params (list :attended :nearest :center) 
+              :request-params (list :attended :nearest :center :closest) 
               :queries '(attended)
               :status-fn (lambda ()
                            (command-output "  attended new          : ~S" (query-buffer 'visual-location '(attended  new)))
@@ -3432,6 +3437,9 @@ Whenever there's a change to the display the buffers will be updated as follows:
                      (print-warning "Visloc defaults not changed."))
                     ((> (length (chunk-spec-slot-spec chunk-spec :nearest)) 1)
                      (print-warning ":nearest specification only allowed once in set-visloc-default.")
+                     (print-warning "Visloc defaults not changed."))
+					((> (length (chunk-spec-slot-spec chunk-spec :closest)) 1)
+                     (print-warning ":closest specification only allowed once in set-visloc-default.")
                      (print-warning "Visloc defaults not changed."))
                     (t
                      (progn (setf (default-spec (get-module :vision)) chunk-spec) t)))
