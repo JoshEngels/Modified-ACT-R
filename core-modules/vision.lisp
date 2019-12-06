@@ -860,7 +860,7 @@
    (other-word-chars :accessor other-word-chars :initform nil)
    (center-point :accessor center-point :initform (vector 0 0))
    (process-display-called :accessor process-display-called :initform nil)
-   (vis-loc-slots :accessor vis-loc-slots :initform '(screen-x screen-y distance))
+   (vis-loc-slots :accessor vis-loc-slots :initform '(screen-x screen-y distance screen-left screen-right screen-top screen-bottom))
    (last-visual-request :accessor last-visual-request :initform nil)
    (tracking-clear :accessor tracking-clear :initform nil)
    (clof :accessor clof :initform nil))
@@ -921,6 +921,7 @@
 
 (defun valid-vis-loc-chunk (chunk vision-mod)
   (let ((slots (vis-loc-slots vision-mod)))
+	(defparameter testchunk chunk)
     (and (chunk-p-fct chunk)
          (fast-chunk-slot-value-fct chunk (first slots))
          (fast-chunk-slot-value-fct chunk (second slots)))))
@@ -1309,7 +1310,7 @@
    attended slot specification one nearest spec and one center spec"
   
   (let* ((attended (first (chunk-spec-slot-spec spec :attended)))
-		 (closest (spec-slot-value (first (chunk-spec-slot-spec spec :closest))))
+		 (nearest2 (spec-slot-value (first (chunk-spec-slot-spec spec :nearest2))))
          (slots (remove-if 'keywordp (chunk-spec-slot-spec spec) :key 'spec-slot-name))
          (current (current-marker vis-mod))
          (current-valid (chunk-p-fct current))
@@ -1317,14 +1318,10 @@
          (current-slots (when (and current current-valid) (chunk-filled-slots-list-fct current)))
          (nearest (spec-slot-value (first (chunk-spec-slot-spec spec :nearest))))
          (min-max-tests nil))
-		 
-	(print slots)
-	(print nearest)
-	(print attended)
-	(print closest)
-
       
     ;; Remap all current values to the current chunk
+	(print clof)
+	(print 'current)
     
     (dolist (x slots)
       (when (eq (spec-slot-value x) 'current)
@@ -1455,6 +1452,37 @@
                                                          (dist (xyz-loc x vis-mod) nearest-coords))))))
                 
                 ((valid-vis-loc-chunk nearest vis-mod)
+                 (let ((nearest-coords (if (numberp (chunk-slot-value-fct nearest (third coord-slots)))
+                                            (xyz-loc nearest vis-mod)
+                                         (vector (chunk-slot-value-fct nearest (first coord-slots))
+                                                 (chunk-slot-value-fct nearest (second coord-slots))
+                                                 (view-dist vis-mod)))))
+                   
+                   (setf matching-chunks (objs-min-val matching-chunks 
+                                                       (lambda (x) 
+                                                         (dist (xyz-loc x vis-mod) nearest-coords))))))
+                
+                (t
+                 (print-warning "Nearest test in a visual-location request must be current, current-x, current-y, clockwise, counterclockwise, or a chunk with ~s and ~s coordinates." (first coord-slots) (second coord-slots))
+                 (print-warning "Ignoring nearest request for ~S." nearest))))
+			
+
+		;; If there is a nearest2 constraint, apply that now (closest edge)
+		;; Applied last, so will not change behavior
+			
+		(when (and nearest2 matching-chunks)
+          (cond ((eq nearest2 'current)
+                 (let ((nearest-coords (aif (clof vis-mod) 
+                                            it
+                                            (progn 
+                                              (model-warning "No location has yet been attended so current is assumed to be a point at 0,0,~d." (view-dist vis-mod))
+                                              (vector 0 0 0 0)))))
+                   
+                   (setf matching-chunks (objs-min-val matching-chunks 
+                                                       (lambda (x) 
+                                                         (dist (xyz-loc x vis-mod) nearest-coords))))))
+                
+                ((valid-vis-loc-chunk nearest2 vis-mod)
                  (let ((nearest-coords (if (numberp (chunk-slot-value-fct nearest (third coord-slots)))
                                             (xyz-loc nearest vis-mod)
                                          (vector (chunk-slot-value-fct nearest (first coord-slots))
@@ -2957,7 +2985,7 @@ Whenever there's a change to the display the buffers will be updated as follows:
 
 (define-module-fct :vision 
     (list (define-buffer-fct 'visual-location 
-              :request-params (list :attended :nearest :center :closest) 
+              :request-params (list :attended :nearest :center :nearest2) 
               :queries '(attended)
               :status-fn (lambda ()
                            (command-output "  attended new          : ~S" (query-buffer 'visual-location '(attended  new)))
@@ -3438,8 +3466,8 @@ Whenever there's a change to the display the buffers will be updated as follows:
                     ((> (length (chunk-spec-slot-spec chunk-spec :nearest)) 1)
                      (print-warning ":nearest specification only allowed once in set-visloc-default.")
                      (print-warning "Visloc defaults not changed."))
-					((> (length (chunk-spec-slot-spec chunk-spec :closest)) 1)
-                     (print-warning ":closest specification only allowed once in set-visloc-default.")
+					((> (length (chunk-spec-slot-spec chunk-spec :nearest2)) 1)
+                     (print-warning ":nearest2 specification only allowed once in set-visloc-default.")
                      (print-warning "Visloc defaults not changed."))
                     (t
                      (progn (setf (default-spec (get-module :vision)) chunk-spec) t)))
