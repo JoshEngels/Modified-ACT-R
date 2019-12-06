@@ -1169,6 +1169,16 @@
     (vector (fast-chunk-slot-value-fct chunk (first slots))
             (fast-chunk-slot-value-fct chunk (second slots))
             (fast-chunk-slot-value-fct chunk (third slots)))))
+			
+(defun xyzs-loc (chunk vis-mod)
+  (let ((slots (vis-loc-slots vis-mod)))
+    (vector (fast-chunk-slot-value-fct chunk (first slots))
+            (fast-chunk-slot-value-fct chunk (second slots))
+            (fast-chunk-slot-value-fct chunk (third slots))
+			(fast-chunk-slot-value-fct chunk (fourth slots))
+			(fast-chunk-slot-value-fct chunk (fifth slots))
+			(fast-chunk-slot-value-fct chunk (sixth slots))
+			(fast-chunk-slot-value-fct chunk (seventh slots)))))
 
 (defgeneric visicon-update (vis-mod &optional count)
   (:documentation "To be called after every time the visicon changes."))
