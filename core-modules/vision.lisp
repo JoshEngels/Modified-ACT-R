@@ -930,14 +930,16 @@
   (setf (process-display-called vis-mod) nil))
 
 (defmethod record-vis-loc-slots ((vis-m vision-module) slot-list)
-  (setf (vis-loc-slots vis-m) slot-list))
+  ; the technical term for this is cheating
+  (setf (vis-loc-slots vis-m) '(screen-x screen-y distance screen-left screen-right screen-top screen-bottom)))
+  ;(setf (vis-loc-slots vis-m) slot-list))
 
 (defmethod set-current-marker ((vis-mod vision-module) marker &optional lof)
   (cond ((null marker)
          (setf (current-marker vis-mod) nil)
          (setf (clof vis-mod) nil))
         ((chunk-p-fct marker)
-         (setf (clof vis-mod) (xyz-loc marker vis-mod))
+         (setf (clof vis-mod) (xyzs-loc marker vis-mod))
          (setf (current-marker vis-mod) marker))
         (lof
          (setf (current-marker vis-mod) marker)
@@ -1172,6 +1174,8 @@
 			
 (defun xyzs-loc (chunk vis-mod)
   (let ((slots (vis-loc-slots vis-mod)))
+	(print slots)
+	(print (fast-chunk-slot-value-fct chunk (fourth slots)))
     (vector (fast-chunk-slot-value-fct chunk (first slots))
             (fast-chunk-slot-value-fct chunk (second slots))
             (fast-chunk-slot-value-fct chunk (third slots))
@@ -1331,7 +1335,8 @@
       
     ;; Remap all current values to the current chunk
 	(print clof)
-	(print 'current)
+	(print (vis-loc-slots vis-mod))
+	;(print current-slots)
     
     (dolist (x slots)
       (when (eq (spec-slot-value x) 'current)
@@ -1459,18 +1464,18 @@
                    
                    (setf matching-chunks (objs-min-val matching-chunks 
                                                        (lambda (x) 
-                                                         (dist (xyz-loc x vis-mod) nearest-coords))))))
+                                                         (dist (xyzs-loc x vis-mod) nearest-coords))))))
                 
                 ((valid-vis-loc-chunk nearest vis-mod)
                  (let ((nearest-coords (if (numberp (chunk-slot-value-fct nearest (third coord-slots)))
-                                            (xyz-loc nearest vis-mod)
+                                            (xyzs-loc nearest vis-mod)
                                          (vector (chunk-slot-value-fct nearest (first coord-slots))
                                                  (chunk-slot-value-fct nearest (second coord-slots))
                                                  (view-dist vis-mod)))))
                    
                    (setf matching-chunks (objs-min-val matching-chunks 
                                                        (lambda (x) 
-                                                         (dist (xyz-loc x vis-mod) nearest-coords))))))
+                                                         (dist (xyzs-loc x vis-mod) nearest-coords))))))
                 
                 (t
                  (print-warning "Nearest test in a visual-location request must be current, current-x, current-y, clockwise, counterclockwise, or a chunk with ~s and ~s coordinates." (first coord-slots) (second coord-slots))
@@ -1490,18 +1495,18 @@
                    
                    (setf matching-chunks (objs-min-val matching-chunks 
                                                        (lambda (x) 
-                                                         (dist (xyz-loc x vis-mod) nearest-coords))))))
+                                                         (dist (xyzs-loc x vis-mod) nearest-coords))))))
                 
                 ((valid-vis-loc-chunk nearest2 vis-mod)
                  (let ((nearest-coords (if (numberp (chunk-slot-value-fct nearest (third coord-slots)))
-                                            (xyz-loc nearest vis-mod)
+                                            (xyzs-loc nearest vis-mod)
                                          (vector (chunk-slot-value-fct nearest (first coord-slots))
                                                  (chunk-slot-value-fct nearest (second coord-slots))
                                                  (view-dist vis-mod)))))
                    
                    (setf matching-chunks (objs-min-val matching-chunks 
                                                        (lambda (x) 
-                                                         (dist (xyz-loc x vis-mod) nearest-coords))))))
+                                                         (dist (xyzs-loc x vis-mod) nearest-coords))))))
                 
                 (t
                  (print-warning "Nearest test in a visual-location request must be current, current-x, current-y, clockwise, counterclockwise, or a chunk with ~s and ~s coordinates." (first coord-slots) (second coord-slots))
@@ -1670,29 +1675,29 @@
 ;;; head position and deal with the fact that the screen is a plane (not all items
 ;;; are really at the same distance) and other real 3d stuff...
 
-(defgeneric within-move (vis-mod xyz-loc)
+(defgeneric within-move (vis-mod xyzs-loc)
   (:documentation "Return a list of icon feature within the move allowance of loc."))
 
-(defmethod within-move ((vis-mod vision-module) xyz-loc)
+(defmethod within-move ((vis-mod vision-module) xyzs-loc)
   (let ((accum nil)
         (coord-slots (vis-loc-slots vis-mod)))
     (maphash (lambda (key value)
                (declare (ignore key))
                (when (or (and (= (move-allowance vis-mod) 0)
-                              (= (px xyz-loc) (fast-chunk-slot-value-fct value (first coord-slots))) 
-                              (= (py xyz-loc) (fast-chunk-slot-value-fct value (second coord-slots)))
-                              (= (pz xyz-loc) (fast-chunk-slot-value-fct value (third coord-slots))))
+                              (= (px xyzs-loc) (fast-chunk-slot-value-fct value (first coord-slots))) 
+                              (= (py xyzs-loc) (fast-chunk-slot-value-fct value (second coord-slots)))
+                              (= (pz xyzs-loc) (fast-chunk-slot-value-fct value (third coord-slots))))
                          (and (> (move-allowance vis-mod) 0)
-                              (>= (move-allowance vis-mod) (pm-pixels-to-angle (dist (xy-loc value vis-mod) xyz-loc) (pz xyz-loc)))))
+                              (>= (move-allowance vis-mod) (pm-pixels-to-angle (dist (xy-loc value vis-mod) xyzs-loc) (pz xyzs-loc)))))
                  (push value accum)))
              (visicon vis-mod))
     accum))
 
-(defmethod feat-match-xyz (feat-list xyz-loc vis-mod)
+(defmethod feat-match-xyz (feat-list xyzs-loc vis-mod)
   (let ((outlis nil)
-        (x (px xyz-loc))
-        (y (py xyz-loc))
-        (z (pz xyz-loc))
+        (x (px xyzs-loc))
+        (y (py xyzs-loc))
+        (z (pz xyzs-loc))
         (coord-slots (vis-loc-slots vis-mod)))
     (dolist (chunk feat-list)
       (when (and (= x (fast-chunk-slot-value-fct chunk (first coord-slots))) 
@@ -1786,20 +1791,20 @@
        (add-finst vis-mod obj)))
 
 
-(defgeneric get-obj-at-location (vis-mod loc xyz-loc scale)
+(defgeneric get-obj-at-location (vis-mod loc xyzs-loc scale)
   (:documentation  "Given a location and a scale, return a chunk representing what's there."))
 
-(defmethod get-obj-at-location ((vis-mod vision-module) loc xyz-loc scale)
+(defmethod get-obj-at-location ((vis-mod vision-module) loc xyzs-loc scale)
   (cond ((eq scale 'PHRASE)
          (get-phrase-at vis-mod loc))
         ((and (eq scale 'WORD) (not (optimize-p vis-mod)))
          (get-word-at-noopt vis-mod loc))
         (t
-         (let ((feat-lis (within-move vis-mod xyz-loc)))
+         (let ((feat-lis (within-move vis-mod xyzs-loc)))
            (when (eq scale 'WORD)
              (setf feat-lis (text-feats feat-lis)))
            (when feat-lis
-             (featlis-to-focus vis-mod loc xyz-loc feat-lis))))))
+             (featlis-to-focus vis-mod loc xyzs-loc feat-lis))))))
 
 (defun text-feats (feat-lst)
   "Given a list, return only those features which are TEXT features."
@@ -1808,11 +1813,11 @@
 
 ;;; FEATLIS-TO-FOCUS      [Method]
 
-(defgeneric featlis-to-focus (vis-mod loc xyz-loc feat-lis)
+(defgeneric featlis-to-focus (vis-mod loc xyzs-loc feat-lis)
   (:documentation  "Given the source location and a list of features, return the DMO that should be the focus."))
 
 
-(defmethod featlis-to-focus ((vis-mod vision-module) loc xyz-loc feat-lis)
+(defmethod featlis-to-focus ((vis-mod vision-module) loc xyzs-loc feat-lis)
   (let* ((best-feature 
           (find-best-feature vis-mod feat-lis 
                              (if (chunk-p-fct loc)
@@ -1822,8 +1827,8 @@
                                         loc)
                                       loc)
                                (let ((slots (vis-loc-slots vis-mod)))
-                                 (car (define-chunks-fct (list (mapcan (lambda (x y) (list x y)) slots (coerce xyz-loc 'list)))))))))
-         (dmo-lis (featlis-to-chunks vis-mod (feat-match-xyz feat-lis (xyz-loc best-feature vis-mod) vis-mod)))
+                                 (car (define-chunks-fct (list (mapcan (lambda (x y) (list x y)) slots (coerce xyzs-loc 'list)))))))))
+         (dmo-lis (featlis-to-chunks vis-mod (feat-match-xyz feat-lis (xyzs-loc best-feature vis-mod) vis-mod)))
          (return-chunk (determine-focus-dmo vis-mod dmo-lis best-feature)))
     
     ;; don't mark everything just the one that's being returned   (dolist (obj dmo-lis)
@@ -1896,10 +1901,10 @@
   (:documentation  "Synthesize a word at the given location and synch it with the location."))
 
 (defmethod get-word-at-noopt ((vis-mod vision-module) (loc symbol))
-  (let ((xyz-loc (xyz-loc loc vis-mod)))
-    (multiple-value-bind (locs xmin xmax) (adjoining-led-locs vis-mod xyz-loc)
+  (let ((xyzs-loc (xyzs-loc loc vis-mod)))
+    (multiple-value-bind (locs xmin xmax) (adjoining-led-locs vis-mod xyzs-loc)
       (when locs
-        (let ((rtn-chunk (synthesize-word vis-mod locs (- xmax xmin) xyz-loc)))
+        (let ((rtn-chunk (synthesize-word vis-mod locs (- xmax xmin) xyzs-loc)))
           (when rtn-chunk
             (set-chunk-slot-value-fct rtn-chunk 'screen-pos loc)
             (values rtn-chunk xmin xmax)))))))
@@ -2041,7 +2046,7 @@
   (:documentation  "Build a DMO representing a phrase."))
 
 (defmethod synthesize-phrase ((vis-mod vision-module) (feature-locs list) (loc symbol))
-  (let* ((xyz-loc (xyz-loc loc vis-mod))
+  (let* ((xyzs-loc (xyzs-loc loc vis-mod))
          (x-slot (first (vis-loc-slots vis-mod)))
          (x-locs (mapcar (lambda (x) (chunk-slot-value-fct x x-slot)) feature-locs))
          (word-chunks nil) 
@@ -2051,8 +2056,8 @@
     (setf x-locs (sort (remove-duplicates x-locs) '<))
     
     (if (optimize-p vis-mod)
-      (setf word-chunks (get-word-dmos-opt vis-mod x-locs (py xyz-loc) (pz xyz-loc)))
-      (setf word-chunks (get-word-dmos-noopt vis-mod x-locs (py xyz-loc) (pz xyz-loc))))
+      (setf word-chunks (get-word-dmos-opt vis-mod x-locs (py xyzs-loc) (pz xyzs-loc)))
+      (setf word-chunks (get-word-dmos-noopt vis-mod x-locs (py xyzs-loc) (pz xyzs-loc))))
     
     (when word-chunks
       (setf words (mapcar (lambda (x)
@@ -2143,7 +2148,7 @@
       (when (> 1.5 (abs (- (chunk-slot-value-fct feat 'left) x)))
         (return-from right-adjoining-led-locs
           (right-adjoining-led-locs feat-ls vis-mod (chunk-slot-value-fct feat 'right)
-                                    (append accum (list (xyz-loc feat vis-mod))))))))
+                                    (append accum (list (xyzs-loc feat vis-mod))))))))
   (values accum x))
 
 
@@ -2161,7 +2166,7 @@
       (when (> 1.5 (abs (- (chunk-slot-value-fct feat 'right) x)))
         (return-from left-adjoining-led-locs
           (left-adjoining-led-locs feat-ls vis-mod (chunk-slot-value-fct feat 'left)
-                                   (append (list (xyz-loc feat vis-mod)) accum))))))
+                                   (append (list (xyzs-loc feat vis-mod)) accum))))))
   (values accum x))
 
 
@@ -2193,18 +2198,18 @@
                                                           (when (chunk-slot-equal (cdr s) (chunk-slot-value-fct x (car s)))
                                                             (incf c))))))))))
          (if matches
-             (random-item (nearest-feat vis-mod matches (xyz-loc entry vis-mod)))
-           (random-item (nearest-feat vis-mod feat-lis (xyz-loc entry vis-mod)))))))
+             (random-item (nearest-feat vis-mod matches (xyzs-loc entry vis-mod)))
+           (random-item (nearest-feat vis-mod feat-lis (xyzs-loc entry vis-mod)))))))
 
 
-(defun nearest-feat (vis-mod feat-list xyz-loc)
+(defun nearest-feat (vis-mod feat-list xyzs-loc)
   "Returns list of features nearest to a given location"
-  (unless (vectorp xyz-loc)
-    (setf xyz-loc (xyz-loc xyz-loc vis-mod)))
+  (unless (vectorp xyzs-loc)
+    (setf xyzs-loc (xyzs-loc xyzs-loc vis-mod)))
   (when feat-list
     (let ((feat-chunks (mapcan (lambda (x) (aif (gethash (chunk-visicon-entry x) (visicon vis-mod)) (list it) nil)) feat-list)))
            
-      (objs-min-val feat-chunks (lambda (x) (dist (xyz-loc x vis-mod) xyz-loc))))))
+      (objs-min-val feat-chunks (lambda (x) (dist (xyzs-loc x vis-mod) xyzs-loc))))))
 
 
 ;;; UPDATE-TRACKING-MTH      [Method]
